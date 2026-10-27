@@ -1,5 +1,6 @@
 package ro.mateiavram.pm;
 
+import ro.mateiavram.crypto.PasswordGenerator;
 import ro.mateiavram.vault.Entry;
 import ro.mateiavram.vault.Vault;
 
@@ -15,8 +16,18 @@ import java.util.Scanner;
 // Meniu interactiv pentru toate functionalitatile Vault.
 public class Main {
 
+    // Pe macOS, AWT (folosit de clipboard) ar afisa o iconita Java in Dock.
+    // Trebuie setat inainte sa fie creat ClipboardHelper (campurile statice de mai jos).
+    static {
+        System.setProperty("apple.awt.UIElement", "true");
+    }
+
     private static final Path PATH = Path.of("test-vault.json");
     private static final Scanner SCANNER = new Scanner(System.in);
+    private static final PasswordGenerator GENERATOR = new PasswordGenerator();
+    private static final int GENERATED_LENGTH = 16;
+    private static final ClipboardHelper CLIPBOARD = new ClipboardHelper();
+    private static final int CLIPBOARD_SECONDS = 20;
 
     public static void main(String[] args) {
         Vault vault = null;
@@ -31,6 +42,7 @@ public class Main {
                         case "1" -> vault = createVault();
                         case "2" -> vault = openVault();
                         case "0" -> {
+                            CLIPBOARD.clearNow();
                             System.out.println("La revedere!");
                             return;
                         }
@@ -50,6 +62,7 @@ public class Main {
                         }
                         case "0" -> {
                             vault.close();
+                            CLIPBOARD.clearNow();
                             System.out.println("Seif inchis. La revedere!");
                             return;
                         }
@@ -118,7 +131,17 @@ public class Main {
     private static void addEntry(Vault vault) throws IOException {
         String service = ask("Serviciu: ");
         String username = ask("Utilizator: ");
-        String password = ask("Parola: ");
+        String password = ask("Parola (Enter = genereaza): ");
+
+        if (password.isEmpty()) {
+            password = GENERATOR.generate(GENERATED_LENGTH, true, true, true);
+            double bits = GENERATOR.entropyBits(GENERATED_LENGTH, true, true, true);
+            // parola nu se afiseaza: merge direct in clipboard, ca sa poata fi lipita pe site
+            CLIPBOARD.copyAndClearLater(password, CLIPBOARD_SECONDS);
+            System.out.printf("Parola generata (%d caractere, entropie: %.1f biti).%n", GENERATED_LENGTH, bits);
+            System.out.println("A fost copiata in clipboard. Se sterge in " + CLIPBOARD_SECONDS + " de secunde.");
+        }
+
         String notes = ask("Notite (optional): ");
         vault.add(new Entry(service, username, password, notes));
         System.out.println("Adaugat.");
@@ -144,14 +167,27 @@ public class Main {
             System.out.println("Nu exista nicio intrare pentru " + service + ".");
             return;
         }
-        for (Entry entry : found) {
-            // afisare intentionata, ceruta explicit. La etapa 5 parola va merge in clipboard.
-            System.out.println("  Serviciu:   " + entry.getService());
-            System.out.println("  Utilizator: " + entry.getUsername());
-            System.out.println("  Parola:     " + entry.getPassword());
-            System.out.println("  Notite:     " + entry.getNotes());
-            System.out.println();
+        Entry entry = found.get(0);
+        if (found.size() > 1) {
+            // mai multe conturi pentru acelasi serviciu: clipboard-ul tine un singur text, deci alegi unul
+            for (int i = 0; i < found.size(); i++) {
+                System.out.println("  " + (i + 1) + ". " + found.get(i).getUsername());
+            }
+            String choice = ask("Care cont? (1-" + found.size() + "): ").trim();
+            try {
+                entry = found.get(Integer.parseInt(choice) - 1);
+            } catch (NumberFormatException | IndexOutOfBoundsException e) {
+                System.out.println("Optiune invalida.");
+                return;
+            }
         }
+
+        System.out.println("  Serviciu:   " + entry.getService());
+        System.out.println("  Utilizator: " + entry.getUsername());
+        System.out.println("  Notite:     " + entry.getNotes());
+        // parola nu apare pe ecran: merge in clipboard si se sterge automat
+        CLIPBOARD.copyAndClearLater(entry.getPassword(), CLIPBOARD_SECONDS);
+        System.out.println("  Parola a fost copiata in clipboard. Se sterge in " + CLIPBOARD_SECONDS + " de secunde.");
     }
 
     private static void deleteEntry(Vault vault) throws IOException {
