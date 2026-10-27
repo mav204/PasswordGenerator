@@ -1,0 +1,15 @@
+# Build Maven
+target/
+
+# Seifuri locale si fisierele temporare de salvare (nu se urca niciodata, nici criptate)
+*vault*.json
+*.json.tmp
+
+# IDE / sistem
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Instructiuni locale pentru asistent
+CLAUDE.md
