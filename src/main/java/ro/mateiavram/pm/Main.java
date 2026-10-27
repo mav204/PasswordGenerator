@@ -12,9 +12,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
-// Playground: meniu interactiv ca sa testezi toate functionalitatile Vault.
-// Va fi inlocuit la etapa 3 de comenzile picocli (init, add, get, list, delete).
-public class PlaygroundMain {
+// Meniu interactiv pentru toate functionalitatile Vault.
+public class Main {
 
     private static final Path PATH = Path.of("test-vault.json");
     private static final Scanner SCANNER = new Scanner(System.in);
